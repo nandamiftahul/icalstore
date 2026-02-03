@@ -514,6 +514,61 @@ def store_checkout_post():
     flash(f"Checkout berhasil. Ref: {sale.ref}", "success")
     return redirect(url_for("cashflow"))
 
+@app.post("/sales/manual")
+@login_required
+def manual_sale():
+    sku = (request.form.get("sku") or "").strip()
+    qty = int(request.form.get("qty") or "0")
+    price_raw = (request.form.get("price") or "").strip()
+    note = (request.form.get("note") or "").strip()
+
+    if qty <= 0:
+        flash("Qty harus > 0.", "danger")
+        return redirect(url_for("dashboard"))
+
+    p = Product.query.filter_by(sku=sku).first()
+    if not p:
+        flash("SKU tidak ditemukan.", "danger")
+        return redirect(url_for("dashboard"))
+
+    if p.stock_qty < qty:
+        flash(f"Stok tidak cukup. Sisa stok {p.stock_qty} {p.unit}.", "danger")
+        return redirect(url_for("dashboard"))
+
+    # harga jual: kalau kosong → pakai retail_price
+    if price_raw == "":
+        price = Decimal(p.retail_price)
+    else:
+        price = Decimal(price_raw)
+
+    # buat transaksi
+    sale = Sale(ref=gen_ref("OFF"), channel="manual", total_amount=0)
+    db.session.add(sale)
+    db.session.flush()  # supaya sale.id kebentuk
+
+    # kurangi stok
+    p.stock_qty -= qty
+
+    # simpan item
+    item = SaleItem(
+        sale_id=sale.id,
+        product_id=p.id,
+        qty=qty,
+        price=price
+    )
+    db.session.add(item)
+
+    total = price * qty
+    sale.total_amount = total
+
+    # (opsional) kalau mau catatan, sekarang belum ada kolom note.
+    # Kalau kamu mau catatan tersimpan, kita bisa tambah kolom note di tabel sales.
+
+    db.session.commit()
+
+    flash(f"Penjualan offline tersimpan. Ref: {sale.ref} (Rp {total:,.0f})", "success")
+    return redirect(url_for("cashflow"))
+
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=8080, debug=True)

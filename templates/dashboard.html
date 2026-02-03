@@ -160,15 +160,41 @@
     <div class="card">
       <div class="card-head">
         <div>
-          <div class="card-title">Quick Links</div>
-          <div class="card-sub">Cashflow · Reseller · Store</div>
+          <div class="card-title">Barang Keluar Manual (Offline)</div>
+          <div class="card-sub">Input penjualan offline → stok berkurang & masuk CashFlow</div>
         </div>
       </div>
-      <div class="quick">
-        <a class="btn ghost" href="{{ url_for('cashflow') }}"><i class="bi bi-graph-up"></i> CashFlow Penjualan</a>
-        <a class="btn ghost" href="{{ url_for('resellers') }}"><i class="bi bi-people"></i> Reseller Data</a>
-        <a class="btn ghost" href="{{ url_for('store') }}"><i class="bi bi-bag"></i> Online Store</a>
-      </div>
+    
+      <form class="form grid" method="POST" action="{{ url_for('manual_sale') }}">
+        <div>
+          <label>SKU</label>
+          <input name="sku" placeholder="SKU-001" required>
+        </div>
+    
+        <div>
+          <label>Qty Keluar</label>
+          <input name="qty" type="number" value="1" min="1" required>
+        </div>
+    
+        <div>
+          <label>Harga Jual (opsional)</label>
+          <input name="price" type="number" step="0.01" placeholder="kosongkan = pakai Retail Price">
+        </div>
+    
+        <div class="full">
+          <label>Catatan (opsional)</label>
+          <input name="note" placeholder="contoh: cash, transfer, pembeli A, dll">
+        </div>
+    
+        <div class="full">
+          <button class="btn primary" type="submit">
+            <i class="bi bi-receipt"></i> Simpan Penjualan Offline
+          </button>
+          <a class="btn ghost" href="{{ url_for('cashflow') }}" style="margin-left:10px;">
+            <i class="bi bi-graph-up"></i> Lihat CashFlow
+          </a>
+        </div>
+      </form>
     </div>
   </div>
 </div>

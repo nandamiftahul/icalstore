@@ -600,23 +600,54 @@ def users_toggle():
     return redirect(url_for("users"))
 
 
+def _store_context(q="", page=1, per_page=12):
+    q = (q or "").strip()
+    page = int(page or 1)
+
+    products_q = Product.query
+    if q:
+        products_q = products_q.filter(
+            (Product.name.ilike(f"%{q}%")) | (Product.sku.ilike(f"%{q}%"))
+        )
+
+    total = products_q.count()
+    pages = max(1, (total + per_page - 1) // per_page)
+    page = max(1, min(page, pages))
+
+    products = (
+        products_q.order_by(Product.name.asc())
+        .offset((page - 1) * per_page)
+        .limit(per_page)
+        .all()
+    )
+
+    cart = session.get("cart", {})
+    cart_count = sum(cart.values()) if isinstance(cart, dict) else 0
+
+    return {
+        "products": products,
+        "q": q,
+        "page": page,
+        "pages": pages,
+        "total": total,
+        "cart_count": cart_count,
+    }
+
+
 # -------------------------
 # ONLINE STORE (catalog + cart simple)
 # -------------------------
 @app.get("/store")
 @login_required
 def store():
-    q = (request.args.get("q") or "").strip()
-    products_q = Product.query
-    if q:
-        products_q = products_q.filter(
-            (Product.name.ilike(f"%{q}%")) | (Product.sku.ilike(f"%{q}%"))
-        )
-    products = products_q.order_by(Product.name.asc()).limit(200).all()
-
-    cart = session.get("cart", {})  # {sku: qty}
-    cart_count = sum(cart.values()) if cart else 0
-    return render_template("store.html", products=products, q=q, cart_count=cart_count)
+    ctx = _store_context(
+        q=request.args.get("q"),
+        page=request.args.get("page") or 1,
+        per_page=12
+    )
+    # default tampilan checkout panel
+    ctx.update({"checkout_items": None, "checkout_total": 0})
+    return render_template("store.html", **ctx)
 
 
 @app.post("/store/cart/add")
@@ -635,6 +666,7 @@ def store_cart_add():
     cart = session.get("cart", {})
     cart[sku] = int(cart.get(sku, 0)) + qty
     session["cart"] = cart
+    session["cart_count"] = sum(cart.values())
     flash("Ditambahkan ke cart.", "success")
     return redirect(url_for("store"))
 
@@ -643,6 +675,7 @@ def store_cart_add():
 @login_required
 def store_cart_clear():
     session["cart"] = {}
+    session["cart_count"] = 0
     flash("Cart dikosongkan.", "info")
     return redirect(url_for("store"))
 
@@ -655,6 +688,13 @@ def store_checkout():
         flash("Cart kosong.", "warning")
         return redirect(url_for("store"))
 
+    # context catalog + pager tetap ada
+    ctx = _store_context(
+        q=request.args.get("q"),
+        page=request.args.get("page") or 1,
+        per_page=12
+    )
+
     # Build checkout view
     items = []
     total = Decimal("0")
@@ -662,12 +702,19 @@ def store_checkout():
         p = Product.query.filter_by(sku=sku).first()
         if not p:
             continue
+        qty = int(qty)
         price = Decimal(p.retail_price)
         subtotal = price * qty
         total += subtotal
         items.append({"product": p, "qty": qty, "price": price, "subtotal": subtotal})
 
-    return render_template("store.html", checkout_items=items, checkout_total=total, cart_count=sum(cart.values()))
+    ctx.update({
+        "checkout_items": items,
+        "checkout_total": total,
+        # cart_count sudah dari ctx
+    })
+
+    return render_template("store.html", **ctx)
 
 
 @app.post("/store/checkout")

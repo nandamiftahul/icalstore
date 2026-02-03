@@ -17,6 +17,9 @@ from models import User, Product, StockIn, Reseller, ResellerInventory, Sale, Sa
 from dotenv import load_dotenv
 load_dotenv()
 
+from datetime import datetime, timedelta
+from sqlalchemy import func
+
 def create_app():
     app = Flask(__name__)
     app.config.from_object(Config)
@@ -239,51 +242,142 @@ def stockin_add():
 @app.get("/cashflow")
 @login_required
 def cashflow():
-    # ambil data terakhir dari 2 sumber
-    sales = Sale.query.order_by(Sale.created_at.desc()).limit(300).all()
-    stockins = StockIn.query.order_by(StockIn.created_at.desc()).limit(300).all()
+    # filters
+    q = (request.args.get("q") or "").strip()
+    date_from = (request.args.get("date_from") or "").strip()  # format: YYYY-MM-DD
+    date_to = (request.args.get("date_to") or "").strip()      # format: YYYY-MM-DD
 
-    events = []
+    dt_from = None
+    dt_to_excl = None  # pakai end-exclusive biar gampang
+    try:
+        if date_from:
+            dt_from = datetime.strptime(date_from, "%Y-%m-%d")
+        if date_to:
+            dt_to = datetime.strptime(date_to, "%Y-%m-%d")
+            dt_to_excl = dt_to + timedelta(days=1)
+    except ValueError:
+        flash("Format tanggal harus YYYY-MM-DD", "danger")
+        return redirect(url_for("cashflow"))
 
-    # + uang masuk dari penjualan
-    for s in sales:
-        events.append({
-            "time": s.created_at,
-            "ref": s.ref,
-            "type": "SALE",
-            "channel": s.channel,
-            "amount": Decimal(s.total_amount),   # +
-        })
+    # =========================
+    # 1) SALDO ALL-TIME (tanpa filter)
+    # =========================
+    total_sales_all = db.session.query(func.coalesce(func.sum(Sale.total_amount), 0)).scalar()
+    total_stockin_all = db.session.query(
+        func.coalesce(func.sum(StockIn.qty * StockIn.cost_per_unit), 0)
+    ).scalar()
 
-    # - uang keluar dari pembelian stok
-    # stock_in belum punya ref → kita bikin ref tampilan saja
-    for si in stockins:
-        out_amount = Decimal(si.qty) * Decimal(si.cost_per_unit)
-        events.append({
-            "time": si.created_at,
-            "ref": f"IN-{si.id}",
-            "type": "STOCKIN",
-            "channel": "stock_in",
-            "amount": -out_amount,              # -
-        })
+    balance_all_time = Decimal(total_sales_all) - Decimal(total_stockin_all)
 
-    # gabung & sort
-    events.sort(key=lambda x: x["time"], reverse=True)
-    events = events[:200]
+    # =========================
+    # 2) EVENT LIST (ITEM-LEVEL) + FILTER
+    # =========================
 
-    # hitung saldo berdasarkan 200 event terakhir
-    balance = sum([e["amount"] for e in events], Decimal("0"))
+    # --- Sale items (uang masuk) ---
+    sale_q = (
+        db.session.query(
+            Sale.created_at.label("time"),
+            Sale.ref.label("ref"),
+            Sale.channel.label("channel"),
+            Product.sku.label("sku"),
+            Product.name.label("product_name"),
+            SaleItem.qty.label("qty"),
+            SaleItem.price.label("unit_price"),
+            (SaleItem.qty * SaleItem.price).label("amount"),  # +
+            func.cast("SALE", db.String).label("etype"),
+        )
+        .join(SaleItem, SaleItem.sale_id == Sale.id)
+        .join(Product, Product.id == SaleItem.product_id)
+    )
 
-    # tambahan: total in/out untuk ringkasan
-    total_in = sum([e["amount"] for e in events if e["amount"] > 0], Decimal("0"))
-    total_out = -sum([e["amount"] for e in events if e["amount"] < 0], Decimal("0"))
+    # --- Stock in items (uang keluar, modal) ---
+    in_q = (
+        db.session.query(
+            StockIn.created_at.label("time"),
+            func.concat("IN-", StockIn.id).label("ref"),
+            func.cast("stock_in", db.String).label("channel"),
+            Product.sku.label("sku"),
+            Product.name.label("product_name"),
+            StockIn.qty.label("qty"),
+            StockIn.cost_per_unit.label("unit_price"),
+            (-StockIn.qty * StockIn.cost_per_unit).label("amount"),  # -
+            func.cast("STOCKIN", db.String).label("etype"),
+        )
+        .join(Product, Product.id == StockIn.product_id)
+    )
+
+    # apply date filter
+    if dt_from:
+        sale_q = sale_q.filter(Sale.created_at >= dt_from)
+        in_q = in_q.filter(StockIn.created_at >= dt_from)
+    if dt_to_excl:
+        sale_q = sale_q.filter(Sale.created_at < dt_to_excl)
+        in_q = in_q.filter(StockIn.created_at < dt_to_excl)
+
+    # apply text filter (sku/name)
+    if q:
+        like = f"%{q}%"
+        sale_q = sale_q.filter((Product.sku.ilike(like)) | (Product.name.ilike(like)))
+        in_q = in_q.filter((Product.sku.ilike(like)) | (Product.name.ilike(like)))
+
+    # union all → sort by time desc
+    events = sale_q.union_all(in_q).subquery()
+
+    # ambil rows untuk display (misal 500 terakhir agar ringan)
+    rows = (
+        db.session.query(events)
+        .order_by(events.c.time.desc())
+        .limit(500)
+        .all()
+    )
+
+    # =========================
+    # 3) SALDO RANGE FILTER (opsional, tapi berguna)
+    # =========================
+    # saldo periode = sum(amount) dari events yang kena filter (tapi tanpa limit)
+    balance_range = db.session.query(func.coalesce(func.sum(events.c.amount), 0)).scalar()
+    balance_range = Decimal(balance_range)
+
+    # =========================
+    # 4) “TINGKAT LAKUNYA” (qty terjual per produk) dalam range filter
+    # =========================
+    sold_stats_q = (
+        db.session.query(
+            Product.sku,
+            Product.name,
+            func.coalesce(func.sum(SaleItem.qty), 0).label("qty_sold"),
+            func.coalesce(func.sum(SaleItem.qty * SaleItem.price), 0).label("revenue"),
+        )
+        .join(SaleItem, SaleItem.product_id == Product.id)
+        .join(Sale, Sale.id == SaleItem.sale_id)
+    )
+    if dt_from:
+        sold_stats_q = sold_stats_q.filter(Sale.created_at >= dt_from)
+    if dt_to_excl:
+        sold_stats_q = sold_stats_q.filter(Sale.created_at < dt_to_excl)
+    if q:
+        like = f"%{q}%"
+        sold_stats_q = sold_stats_q.filter((Product.sku.ilike(like)) | (Product.name.ilike(like)))
+
+    sold_stats = (
+        sold_stats_q
+        .group_by(Product.sku, Product.name)
+        .order_by(func.sum(SaleItem.qty).desc())
+        .limit(20)
+        .all()
+    )
 
     return render_template(
         "cashflow.html",
-        events=events,
-        balance=balance,
-        total_in=total_in,
-        total_out=total_out
+        rows=rows,
+        balance_all_time=balance_all_time,
+        balance_range=balance_range,
+        total_in_all=Decimal(total_sales_all),
+        total_out_all=Decimal(total_stockin_all),
+        q=q,
+        date_from=date_from,
+        date_to=date_to,
+        sold_stats=sold_stats
     )
 
 

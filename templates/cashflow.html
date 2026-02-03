@@ -2,27 +2,60 @@
 {% set title = "CashFlow" %}
 {% block content %}
 
+<!-- =========================
+     1) TOP SOLD (di atas)
+========================= -->
 <div class="card">
   <div class="card-head">
     <div>
-      <div class="card-title">CashFlow & History</div>
+      <div class="card-title">Tingkat Lakunya (Top Sold)</div>
+      <div class="card-sub">Total qty terjual dalam periode filter</div>
+    </div>
+  </div>
+
+  <div class="table">
+    <div class="trow thead" style="grid-template-columns: .9fr 1.8fr .8fr 1fr;">
+      <div>SKU</div><div>Nama</div><div>Qty Sold</div><div>Revenue</div>
+    </div>
+
+    {% for s in sold_stats %}
+    <div class="trow" style="grid-template-columns: .9fr 1.8fr .8fr 1fr;">
+      <div><b>{{ s.sku }}</b></div>
+      <div>{{ s.name }}</div>
+      <div><b>{{ s.qty_sold }}</b></div>
+      <div>Rp {{ "{:,.0f}".format(s.revenue) }}</div>
+    </div>
+    {% endfor %}
+
+    {% if sold_stats|length == 0 %}
+      <div class="empty">Belum ada penjualan di periode ini.</div>
+    {% endif %}
+  </div>
+</div>
+
+<div style="height:14px;"></div>
+
+<!-- =========================
+     2) FILTER (tengah)
+========================= -->
+<div class="card">
+  <div class="card-head">
+    <div>
+      <div class="card-title">Filter</div>
       <div class="card-sub">
         Saldo All-time: <b>Rp {{ "{:,.0f}".format(balance_all_time) }}</b>
         · In (Sales): <b>Rp {{ "{:,.0f}".format(total_in_all) }}</b>
         · Out (Stock Modal): <b>Rp {{ "{:,.0f}".format(total_out_all) }}</b>
-      </div>
-      <div class="card-sub" style="margin-top:6px;">
-        Saldo Periode (sesuai filter): <b>Rp {{ "{:,.0f}".format(balance_range) }}</b>
+        · Saldo Periode: <b>Rp {{ "{:,.0f}".format(balance_range) }}</b>
       </div>
     </div>
-    <a class="btn ghost" href="{{ url_for('store') }}"><i class="bi bi-bag"></i> Open Store</a>
   </div>
 
   <div class="toolbar">
-    <form method="GET" action="{{ url_for('cashflow') }}" class="search" style="gap:12px;">
-      <div style="display:flex; gap:10px; flex:1; align-items:center;">
+    <form method="GET" action="{{ url_for('cashflow') }}" class="search" style="gap:12px; flex-wrap:wrap;">
+      <div style="display:flex; gap:10px; flex:1; align-items:center; min-width:260px;">
         <i class="bi bi-search"></i>
-        <input name="q" value="{{ q }}" placeholder="Filter SKU / Nama barang" style="min-width:220px;">
+        <input name="q" value="{{ q }}" placeholder="Filter SKU / Nama barang">
       </div>
 
       <input name="date_from" type="date" value="{{ date_from }}" title="Dari tanggal">
@@ -36,76 +69,64 @@
 
 <div style="height:14px;"></div>
 
-<div class="grid2">
-  <div class="card">
-    <div class="card-head">
-      <div>
-        <div class="card-title">History CashFlow (Item-level)</div>
-        <div class="card-sub">Menampilkan 500 event terbaru sesuai filter</div>
-      </div>
+<!-- =========================
+     3) TABEL CASHFLOW (bawah)
+========================= -->
+<div class="card">
+  <div class="card-head">
+    <div>
+      <div class="card-title">History CashFlow (Item-level)</div>
+      <div class="card-sub">Menampilkan 500 event terbaru sesuai filter</div>
     </div>
-
-    <div class="table">
-      <div class="trow thead" style="grid-template-columns: 1.2fr .8fr .9fr .9fr 1.6fr .7fr .9fr .9fr .9fr;">
-        <div>Time</div><div>Type</div><div>Ref</div><div>SKU</div><div>Nama Barang</div><div>Qty</div><div>Unit Price</div><div>Amount</div><div>Channel</div>
-      </div>
-
-      {% for e in rows %}
-      <div class="trow" style="grid-template-columns: 1.2fr .8fr .9fr .9fr 1.6fr .7fr .9fr .9fr .9fr;">
-        <div>{{ e.time.strftime("%Y-%m-%d %H:%M") }}</div>
-        <div>
-          {% if e.etype == "STOCKIN" %}
-            <span class="pill danger">OUT</span>
-          {% else %}
-            <span class="pill ok">IN</span>
-          {% endif %}
-        </div>
-        <div><b>{{ e.ref }}</b></div>
-        <div><b>{{ e.sku }}</b></div>
-        <div>{{ e.product_name }}</div>
-        <div>{{ e.qty }}</div>
-        <div>Rp {{ "{:,.0f}".format(e.unit_price) }}</div>
-        <div>
-          {% if e.amount < 0 %}
-            <span style="color:#ef4444;">- Rp {{ "{:,.0f}".format((-e.amount)) }}</span>
-          {% else %}
-            <span style="color:#22c55e;">+ Rp {{ "{:,.0f}".format(e.amount) }}</span>
-          {% endif %}
-        </div>
-        <div>{{ e.channel }}</div>
-      </div>
-      {% endfor %}
-
-      {% if rows|length == 0 %}
-        <div class="empty">Tidak ada data untuk filter tersebut.</div>
-      {% endif %}
-    </div>
+    <a class="btn ghost" href="{{ url_for('store') }}"><i class="bi bi-bag"></i> Open Store</a>
   </div>
 
-  <div class="card">
-    <div class="card-head">
-      <div>
-        <div class="card-title">Tingkat Lakunya (Top Sold)</div>
-        <div class="card-sub">Total qty terjual dalam periode filter</div>
-      </div>
+  <div class="table">
+    <div class="trow thead" style="grid-template-columns: 1.2fr .7fr .9fr .9fr 1.8fr .7fr .9fr 1fr .9fr;">
+      <div>Time</div>
+      <div>In/Out</div>
+      <div>Ref</div>
+      <div>SKU</div>
+      <div>Nama Barang</div>
+      <div>Qty</div>
+      <div>Unit Price</div>
+      <div>Amount</div>
+      <div>Channel</div>
     </div>
 
-    <div class="table">
-      <div class="trow thead" style="grid-template-columns: .9fr 1.6fr .8fr 1fr;">
-        <div>SKU</div><div>Nama</div><div>Qty Sold</div><div>Revenue</div>
+    {% for e in rows %}
+    <div class="trow" style="grid-template-columns: 1.2fr .7fr .9fr .9fr 1.8fr .7fr .9fr 1fr .9fr;">
+      <div>{{ e.time.strftime("%Y-%m-%d %H:%M") }}</div>
+
+      <div>
+        {% if e.etype == "STOCKIN" %}
+          <span class="pill danger">OUT</span>
+        {% else %}
+          <span class="pill ok">IN</span>
+        {% endif %}
       </div>
-      {% for s in sold_stats %}
-      <div class="trow" style="grid-template-columns: .9fr 1.6fr .8fr 1fr;">
-        <div><b>{{ s.sku }}</b></div>
-        <div>{{ s.name }}</div>
-        <div><b>{{ s.qty_sold }}</b></div>
-        <div>Rp {{ "{:,.0f}".format(s.revenue) }}</div>
+
+      <div><b>{{ e.ref }}</b></div>
+      <div><b>{{ e.sku }}</b></div>
+      <div>{{ e.product_name }}</div>
+      <div>{{ e.qty }}</div>
+      <div>Rp {{ "{:,.0f}".format(e.unit_price) }}</div>
+
+      <div>
+        {% if e.amount < 0 %}
+          <span style="color:#ef4444;">- Rp {{ "{:,.0f}".format((-e.amount)) }}</span>
+        {% else %}
+          <span style="color:#22c55e;">+ Rp {{ "{:,.0f}".format(e.amount) }}</span>
+        {% endif %}
       </div>
-      {% endfor %}
-      {% if sold_stats|length == 0 %}
-        <div class="empty">Belum ada penjualan di periode ini.</div>
-      {% endif %}
+
+      <div>{{ e.channel }}</div>
     </div>
+    {% endfor %}
+
+    {% if rows|length == 0 %}
+      <div class="empty">Tidak ada data untuk filter tersebut.</div>
+    {% endif %}
   </div>
 </div>
 

@@ -142,8 +142,10 @@ def product_upsert():
     name = (request.form.get("name") or "").strip()
     unit = (request.form.get("unit") or "pcs").strip()
 
+    cost_price = Decimal(request.form.get("cost_price") or "0")  # ✅ tambah
     retail_price = Decimal(request.form.get("retail_price") or "0")
     reseller_price = Decimal(request.form.get("reseller_price") or "0")
+
     min_level = int(request.form.get("min_level") or "0")
     notes = (request.form.get("notes") or "").strip()
 
@@ -158,6 +160,7 @@ def product_upsert():
 
     p.name = name
     p.unit = unit
+    p.cost_price = cost_price  # ✅ simpan modal default
     p.retail_price = retail_price
     p.reseller_price = reseller_price
     p.min_level = min_level
@@ -171,15 +174,19 @@ def product_upsert():
 # -------------------------
 # STOCK IN (barang masuk + update harga)
 # -------------------------
+from decimal import Decimal
+
 @app.post("/stockin/add")
 @login_required
 def stockin_add():
     sku = (request.form.get("sku") or "").strip()
     qty = int(request.form.get("qty") or "0")
-    cost_per_unit = Decimal(request.form.get("cost_per_unit") or "0")
 
-    new_retail = request.form.get("new_retail_price")
-    new_reseller = request.form.get("new_reseller_price")
+    # ambil string cost (biar bisa cek kosong)
+    cost_raw = (request.form.get("cost_per_unit") or "").strip()
+
+    new_retail = (request.form.get("new_retail_price") or "").strip()
+    new_reseller = (request.form.get("new_reseller_price") or "").strip()
 
     if qty <= 0:
         flash("Qty barang masuk harus > 0.", "danger")
@@ -190,26 +197,39 @@ def stockin_add():
         flash("SKU tidak ditemukan. Buat produk dulu.", "danger")
         return redirect(url_for("dashboard"))
 
+    # ✅ kalau cost kosong → pakai modal default product
+    if cost_raw == "":
+        cost_per_unit = Decimal(p.cost_price or 0)
+    else:
+        cost_per_unit = Decimal(cost_raw)
+
+    # parse optional harga baru
+    new_retail_price = Decimal(new_retail) if new_retail != "" else None
+    new_reseller_price = Decimal(new_reseller) if new_reseller != "" else None
+
     si = StockIn(
         product_id=p.id,
         qty=qty,
         cost_per_unit=cost_per_unit,
-        new_retail_price=Decimal(new_retail) if new_retail not in (None, "",) else None,
-        new_reseller_price=Decimal(new_reseller) if new_reseller not in (None, "",) else None,
+        new_retail_price=new_retail_price,
+        new_reseller_price=new_reseller_price,
     )
     db.session.add(si)
 
     # update stok
     p.stock_qty += qty
 
-    # update harga jika diisi
-    if si.new_retail_price is not None:
-        p.retail_price = si.new_retail_price
-    if si.new_reseller_price is not None:
-        p.reseller_price = si.new_reseller_price
+    # ✅ update modal terakhir (ini yang kamu minta: bisa naik sewaktu-waktu)
+    p.cost_price = cost_per_unit
+
+    # update harga jual jika diisi
+    if new_retail_price is not None:
+        p.retail_price = new_retail_price
+    if new_reseller_price is not None:
+        p.reseller_price = new_reseller_price
 
     db.session.commit()
-    flash("Barang masuk tercatat & stok terupdate.", "success")
+    flash("Barang masuk tercatat, stok & modal terupdate.", "success")
     return redirect(url_for("dashboard"))
 
 

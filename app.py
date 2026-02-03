@@ -239,9 +239,53 @@ def stockin_add():
 @app.get("/cashflow")
 @login_required
 def cashflow():
-    sales = Sale.query.order_by(Sale.created_at.desc()).limit(200).all()
-    total = db.session.query(db.func.coalesce(db.func.sum(Sale.total_amount), 0)).scalar()
-    return render_template("cashflow.html", sales=sales, total=total)
+    # ambil data terakhir dari 2 sumber
+    sales = Sale.query.order_by(Sale.created_at.desc()).limit(300).all()
+    stockins = StockIn.query.order_by(StockIn.created_at.desc()).limit(300).all()
+
+    events = []
+
+    # + uang masuk dari penjualan
+    for s in sales:
+        events.append({
+            "time": s.created_at,
+            "ref": s.ref,
+            "type": "SALE",
+            "channel": s.channel,
+            "amount": Decimal(s.total_amount),   # +
+        })
+
+    # - uang keluar dari pembelian stok
+    # stock_in belum punya ref → kita bikin ref tampilan saja
+    for si in stockins:
+        out_amount = Decimal(si.qty) * Decimal(si.cost_per_unit)
+        events.append({
+            "time": si.created_at,
+            "ref": f"IN-{si.id}",
+            "type": "STOCKIN",
+            "channel": "stock_in",
+            "amount": -out_amount,              # -
+        })
+
+    # gabung & sort
+    events.sort(key=lambda x: x["time"], reverse=True)
+    events = events[:200]
+
+    # hitung saldo berdasarkan 200 event terakhir
+    balance = sum([e["amount"] for e in events], Decimal("0"))
+
+    # tambahan: total in/out untuk ringkasan
+    total_in = sum([e["amount"] for e in events if e["amount"] > 0], Decimal("0"))
+    total_out = -sum([e["amount"] for e in events if e["amount"] < 0], Decimal("0"))
+
+    return render_template(
+        "cashflow.html",
+        events=events,
+        balance=balance,
+        total_in=total_in,
+        total_out=total_out
+    )
+
 
 
 # -------------------------

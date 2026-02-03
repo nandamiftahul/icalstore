@@ -1,30 +1,48 @@
 {% extends "base.html" %}
-{% set title = "CashFlow Penjualan" %}
+{% set title = "CashFlow" %}
 {% block content %}
 
 <div class="card">
   <div class="card-head">
     <div>
       <div class="card-title">CashFlow</div>
-      <div class="card-sub">Total (200 transaksi terakhir): <b>Rp {{ "{:,.0f}".format(total) }}</b></div>
+      <div class="card-sub">
+        Saldo (200 event terakhir): <b>Rp {{ "{:,.0f}".format(balance) }}</b>
+        · In: <b>Rp {{ "{:,.0f}".format(total_in) }}</b>
+        · Out: <b>Rp {{ "{:,.0f}".format(total_out) }}</b>
+      </div>
     </div>
     <a class="btn ghost" href="{{ url_for('store') }}"><i class="bi bi-bag"></i> Open Store</a>
   </div>
 
   <div class="table">
     <div class="trow thead">
-      <div>Time</div><div>Ref</div><div>Channel</div><div>Total</div>
+      <div>Time</div><div>Ref</div><div>Type</div><div>Amount</div>
     </div>
-    {% for s in sales %}
+
+    {% for e in events %}
     <div class="trow">
-      <div>{{ s.created_at.strftime("%Y-%m-%d %H:%M") }}</div>
-      <div><b>{{ s.ref }}</b></div>
-      <div>{{ s.channel }}</div>
-      <div>Rp {{ "{:,.0f}".format(s.total_amount) }}</div>
+      <div>{{ e.time.strftime("%Y-%m-%d %H:%M") }}</div>
+      <div><b>{{ e.ref }}</b></div>
+      <div>
+        {% if e.type == "STOCKIN" %}
+          Stock In (Modal)
+        {% else %}
+          Sale ({{ e.channel }})
+        {% endif %}
+      </div>
+      <div>
+        {% if e.amount < 0 %}
+          <span style="color:#ef4444;">- Rp {{ "{:,.0f}".format((-e.amount)) }}</span>
+        {% else %}
+          <span style="color:#22c55e;">+ Rp {{ "{:,.0f}".format(e.amount) }}</span>
+        {% endif %}
+      </div>
     </div>
     {% endfor %}
-    {% if sales|length==0 %}
-      <div class="empty">Belum ada penjualan.</div>
+
+    {% if events|length==0 %}
+      <div class="empty">Belum ada event cashflow.</div>
     {% endif %}
   </div>
 </div>

@@ -5,6 +5,18 @@
 <div class="grid2">
   <div class="card">
     <div class="card-head">
+<div class="toolbar" style="padding: 0 16px 14px;">
+  <form method="POST" action="{{ url_for('upload_products_xlsx') }}" enctype="multipart/form-data"
+        style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+    <input type="file" name="file" accept=".xlsx" required>
+    <button class="btn ghost" type="submit">
+      <i class="bi bi-upload"></i> Upload Excel (Auto Input)
+    </button>
+    <div class="hint" style="margin:0;">
+      Format: NO, SKU, NAMA, NOTES, MIN LEVEL, MODAL, RETAIL, RESELLER
+    </div>
+  </form>
+</div>
       <div>
         <div class="card-title">Summary</div>
         <div class="card-sub">Folders: {{ folders|length }} · Items: {{ totals.product_count }}</div>

@@ -20,6 +20,9 @@ load_dotenv()
 from datetime import datetime, timedelta
 from sqlalchemy import func
 
+from openpyxl import load_workbook
+from werkzeug.utils import secure_filename
+
 def create_app():
     app = Flask(__name__)
     app.config.from_object(Config)
@@ -706,6 +709,120 @@ def manual_sale():
 
     flash(f"Penjualan offline tersimpan. Ref: {sale.ref} (Rp {total:,.0f})", "success")
     return redirect(url_for("cashflow"))
+
+def _to_int(v, default=0):
+    try:
+        if v is None or v == "":
+            return default
+        return int(float(v))
+    except Exception:
+        return default
+
+def _to_decimal(v, default=Decimal("0")):
+    try:
+        if v is None or v == "":
+            return default
+        return Decimal(str(v))
+    except Exception:
+        return default
+
+
+@app.post("/products/upload_xlsx")
+@login_required
+def upload_products_xlsx():
+    f = request.files.get("file")
+    if not f or f.filename.strip() == "":
+        flash("File xlsx belum dipilih.", "danger")
+        return redirect(url_for("dashboard"))
+
+    filename = secure_filename(f.filename)
+    if not filename.lower().endswith(".xlsx"):
+        flash("Format file harus .xlsx", "danger")
+        return redirect(url_for("dashboard"))
+
+    # baca excel langsung dari stream (tanpa save ke disk)
+    wb = load_workbook(f, data_only=True)
+
+    # sesuai file kamu: sheet 'PEMBELIAN BARANG'
+    ws = wb["PEMBELIAN BARANG"] if "PEMBELIAN BARANG" in wb.sheetnames else wb.active
+
+    # cari header row yang berisi "SKU"
+    header_row = None
+    for r in range(1, min(ws.max_row, 30) + 1):
+        row_vals = [ws.cell(r, c).value for c in range(1, 9)]
+        if row_vals and any(str(x).strip().upper() == "SKU" for x in row_vals if x is not None):
+            header_row = r
+            break
+
+    if not header_row:
+        flash("Header tidak ditemukan. Pastikan ada kolom 'SKU'.", "danger")
+        return redirect(url_for("dashboard"))
+
+    created = 0
+    updated = 0
+    skipped = 0
+
+    # mapping kolom sesuai template kamu:
+    # 1 NO, 2 SKU, 3 NAMA, 4 NOTES, 5 MIN LEVEL, 6 MODAL, 7 RETAIL, 8 RESELLER
+    for r in range(header_row + 1, ws.max_row + 1):
+        no = ws.cell(r, 1).value
+        sku = ws.cell(r, 2).value
+        name = ws.cell(r, 3).value
+        notes = ws.cell(r, 4).value
+        min_level = ws.cell(r, 5).value
+        modal = ws.cell(r, 6).value
+        retail = ws.cell(r, 7).value
+        reseller = ws.cell(r, 8).value
+
+        # skip baris kosong / baris tanggal yang tidak punya SKU string
+        if sku is None:
+            continue
+        if not isinstance(sku, str):
+            skipped += 1
+            continue
+
+        sku = sku.strip()
+        if sku == "":
+            continue
+
+        # nama wajib
+        if name is None or str(name).strip() == "":
+            skipped += 1
+            continue
+
+        name = str(name).strip()
+        notes = "" if notes is None else str(notes).strip()
+
+        min_level_i = _to_int(min_level, default=0)
+        modal_d = _to_decimal(modal, default=Decimal("0"))
+        retail_d = _to_decimal(retail, default=Decimal("0"))
+        reseller_d = _to_decimal(reseller, default=Decimal("0"))
+
+        p = Product.query.filter_by(sku=sku).first()
+        if not p:
+            p = Product(sku=sku, name=name)
+            db.session.add(p)
+            created += 1
+        else:
+            updated += 1
+
+        # update fields
+        p.name = name
+        p.notes = notes
+        p.min_level = min_level_i
+
+        # modal + harga jual
+        p.cost_price = modal_d
+        p.retail_price = retail_d
+        p.reseller_price = reseller_d
+
+        # unit tetap default jika kosong
+        if not getattr(p, "unit", None):
+            p.unit = "pcs"
+
+    db.session.commit()
+    flash(f"Upload selesai. Created: {created}, Updated: {updated}, Skipped: {skipped}", "success")
+    return redirect(url_for("dashboard"))
 
 
 if __name__ == "__main__":

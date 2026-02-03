@@ -8,3 +8,4 @@ gunicorn
 python-barcode
 Pillow
 python-dotenv
+openpyxl

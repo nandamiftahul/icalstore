@@ -2,21 +2,12 @@
 {% set title = "Main Page" %}
 {% block content %}
 
-<div class="grid2">
-  <div class="card">
+<div class="grid2 dashboard-grid">
+  <!-- =========================
+       LEFT: Stock List Panel
+  ========================== -->
+  <div class="card stock-panel">
     <div class="card-head">
-<div class="toolbar" style="padding: 0 16px 14px;">
-  <form method="POST" action="{{ url_for('upload_products_xlsx') }}" enctype="multipart/form-data"
-        style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
-    <input type="file" name="file" accept=".xlsx" required>
-    <button class="btn ghost" type="submit">
-      <i class="bi bi-upload"></i> Upload Excel (Auto Input)
-    </button>
-    <div class="hint" style="margin:0;">
-      Format: NO, SKU, NAMA, NOTES, MIN LEVEL, MODAL, RETAIL, RESELLER
-    </div>
-  </form>
-</div>
       <div>
         <div class="card-title">Summary</div>
         <div class="card-sub">Folders: {{ folders|length }} · Items: {{ totals.product_count }}</div>
@@ -33,60 +24,93 @@
       </div>
     </div>
 
-    <div class="folders">
-      {% for f in folders %}
-      <div class="folder">
-        <div class="folder-ico"><i class="bi bi-folder"></i></div>
-        <div>
-          <div class="folder-name">{{ f.name }}</div>
-          <div class="folder-sub">{{ f.count }} items</div>
-        </div>
+    <!-- ✅ Scrollable body -->
+    <div class="card-body-scroll">
+      <!-- Upload Excel -->
+      <div class="toolbar">
+        <form method="POST" action="{{ url_for('upload_products_xlsx') }}"
+              enctype="multipart/form-data"
+              class="upload-bar">
+          <input class="upload-file" type="file" name="file" accept=".xlsx" required>
+          <button class="btn ghost" type="submit">
+            <i class="bi bi-upload"></i> Upload Excel
+          </button>
+          <div class="hint">
+            Format: NO, SKU, NAMA, NOTES, MIN LEVEL, MODAL, RETAIL, RESELLER
+          </div>
+        </form>
       </div>
-      {% endfor %}
-    </div>
 
-    <div class="toolbar">
-      <form method="GET" action="{{ url_for('dashboard') }}" class="search">
-        <i class="bi bi-search"></i>
-        <input name="q" value="{{ q }}" placeholder="Search SKU / name">
-      </form>
-    </div>
-
-    <div class="list">
-      {% for p in products %}
-      <div class="row">
-        <div class="thumb">
-          <div class="thumb-box"><i class="bi bi-box-seam"></i></div>
-        </div>
-        <div class="row-main">
-          <div class="row-title">{{ p.name }}</div>
-          <div class="row-sub">
-            SKU: <b>{{ p.sku }}</b> · Stock: <b class="{{ 'danger' if p.stock_qty<=p.min_level else '' }}">{{ p.stock_qty }}</b> {{ p.unit }}
-            · Min: {{ p.min_level }}
-          </div>
-          <div class="row-meta">
-            <span class="tag">Retail: Rp {{ "{:,.0f}".format(p.retail_price) }}</span>
-            <span class="tag soft">Reseller: Rp {{ "{:,.0f}".format(p.reseller_price) }}</span>
-            <a class="tag link" href="{{ url_for('barcode_png', sku=p.sku) }}" target="_blank">
-              <i class="bi bi-upc-scan"></i> Barcode PNG
-            </a>
+      <!-- Folder cards -->
+      <div class="folders">
+        {% for f in folders %}
+        <div class="folder">
+          <div class="folder-ico"><i class="bi bi-folder"></i></div>
+          <div>
+            <div class="folder-name">{{ f.name }}</div>
+            <div class="folder-sub">
+              Masuk: <b>{{ f.in_qty }}</b> · Terjual: <b>{{ f.sold_qty }}</b>
+            </div>
           </div>
         </div>
-        <div class="row-side">
-          <div class="note">
-            <div class="note-k">Notes</div>
-            <div class="note-v">{{ p.notes or "-" }}</div>
-          </div>
-        </div>
+        {% endfor %}
       </div>
-      {% endfor %}
-      {% if products|length == 0 %}
-        <div class="empty">Tidak ada item.</div>
-      {% endif %}
+
+      <!-- Sticky search (stays visible while scrolling list) -->
+      <div class="toolbar sticky-subbar">
+        <form method="GET" action="{{ url_for('dashboard') }}" class="search">
+          <i class="bi bi-search"></i>
+          <input name="q" value="{{ q }}" placeholder="Search SKU / name">
+        </form>
+      </div>
+
+      <!-- List -->
+      <div class="list list-scroll">
+        {% for p in products %}
+        <div class="row">
+          <div class="thumb">
+            <div class="thumb-box"><i class="bi bi-box-seam"></i></div>
+          </div>
+
+          <div class="row-main">
+            <div class="row-title">{{ p.name }}</div>
+            <div class="row-sub">
+              SKU: <b>{{ p.sku }}</b>
+              · Stock:
+              <b class="{{ 'danger' if p.stock_qty<=p.min_level else '' }}">{{ p.stock_qty }}</b> {{ p.unit }}
+              · Min: {{ p.min_level }}
+            </div>
+
+            <div class="row-meta">
+              <span class="tag">Retail: Rp {{ "{:,.0f}".format(p.retail_price) }}</span>
+              <span class="tag soft">Reseller: Rp {{ "{:,.0f}".format(p.reseller_price) }}</span>
+              <span class="tag soft">Cost: Rp {{ "{:,.0f}".format(p.cost_price) }}</span>
+              <a class="tag link" href="{{ url_for('barcode_png', sku=p.sku) }}" target="_blank">
+                <i class="bi bi-upc-scan"></i> Barcode PNG
+              </a>
+            </div>
+          </div>
+
+          <div class="row-side">
+            <div class="note">
+              <div class="note-k">Notes</div>
+              <div class="note-v">{{ p.notes or "-" }}</div>
+            </div>
+          </div>
+        </div>
+        {% endfor %}
+
+        {% if products|length == 0 %}
+          <div class="empty">Tidak ada item.</div>
+        {% endif %}
+      </div>
     </div>
   </div>
 
-  <div class="stack">
+  <!-- =========================
+       RIGHT: Forms Stack
+  ========================== -->
+  <div class="stack stack-sticky">
     <div class="card">
       <div class="card-head">
         <div>
@@ -128,6 +152,13 @@
           <label>Notes</label>
           <input name="notes" placeholder="contoh: UNLINE / serial / dll">
         </div>
+        <div>
+          <label>Category</label>
+          <select name="category">
+            <option value="Clothes">Clothes</option>
+            <option value="Other">Other</option>
+          </select>
+        </div>    
         <div class="full">
           <button class="btn primary" type="submit"><i class="bi bi-save"></i> Save Product</button>
         </div>
@@ -153,7 +184,8 @@
         </div>
         <div>
           <label>Cost / Unit</label>
-          <input name="cost_per_unit" type="number" step="0.01" placeholder="kosongkan untuk pakai modal default">
+          <input name="cost_per_unit" type="number" step="0.01"
+                 placeholder="kosongkan untuk pakai modal default">
         </div>
         <div>
           <label>New Retail Price</label>
@@ -176,28 +208,24 @@
           <div class="card-sub">Input penjualan offline → stok berkurang & masuk CashFlow</div>
         </div>
       </div>
-    
+
       <form class="form grid" method="POST" action="{{ url_for('manual_sale') }}">
         <div>
           <label>SKU</label>
           <input name="sku" placeholder="SKU-001" required>
         </div>
-    
         <div>
           <label>Qty Keluar</label>
           <input name="qty" type="number" value="1" min="1" required>
         </div>
-    
         <div>
           <label>Harga Jual (opsional)</label>
           <input name="price" type="number" step="0.01" placeholder="kosongkan = pakai Retail Price">
         </div>
-    
         <div class="full">
           <label>Catatan (opsional)</label>
           <input name="note" placeholder="contoh: cash, transfer, pembeli A, dll">
         </div>
-    
         <div class="full">
           <button class="btn primary" type="submit">
             <i class="bi bi-receipt"></i> Simpan Penjualan Offline

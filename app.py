@@ -18,7 +18,8 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from datetime import datetime, timedelta
-from sqlalchemy import func
+from sqlalchemy import func, text
+
 
 from openpyxl import load_workbook
 from werkzeug.utils import secure_filename
@@ -32,6 +33,7 @@ def create_app():
 
     with app.app_context():
         db.create_all()
+        ensure_schema()
         seed_admin_if_empty()
 
     return app
@@ -61,6 +63,27 @@ def require_admin():
 def gen_ref(prefix="TRX"):
     s = "".join(random.choices(string.ascii_uppercase + string.digits, k=6))
     return f"{prefix}-{datetime.utcnow().strftime('%y%m%d')}-{s}"
+
+def ensure_schema():
+    """
+    Auto schema patch (tanpa alembic):
+    - memastikan kolom products.category ada
+    - aman dipanggil berulang
+    """
+    with db.engine.begin() as conn:
+        # cek kolom category di tabel products
+        col_exists = conn.execute(text("""
+            SELECT 1
+            FROM information_schema.columns
+            WHERE table_name='products' AND column_name='category'
+            LIMIT 1
+        """)).scalar()
+
+        if not col_exists:
+            conn.execute(text("""
+                ALTER TABLE products
+                ADD COLUMN category VARCHAR(80) NOT NULL DEFAULT 'Clothes'
+            """))
 
 
 app = create_app()
@@ -102,6 +125,7 @@ def logout():
 # -------------------------
 # DASHBOARD
 # -------------------------
+
 @app.get("/")
 @login_required
 def dashboard():
@@ -117,17 +141,48 @@ def dashboard():
 
     totals = {
         "product_count": Product.query.count(),
-        "total_qty": db.session.query(db.func.coalesce(db.func.sum(Product.stock_qty), 0)).scalar(),
+        "total_qty": db.session.query(func.coalesce(func.sum(Product.stock_qty), 0)).scalar(),
         "total_value": db.session.query(
-            db.func.coalesce(db.func.sum(Product.stock_qty * Product.retail_price), 0)
+            func.coalesce(func.sum(Product.stock_qty * Product.retail_price), 0)
         ).scalar(),
     }
 
-    # folder-like cards (dummy UI like screenshot)
-    folders = [
-        {"name": "Cleaning Supplies", "count": Product.query.count()},
-        {"name": "Main Office", "count": max(1, Product.query.count() // 2)},
-    ]
+    # ====== REAL folder stats: total masuk & total terjual per category ======
+    categories = ["Clothes", "Other"]
+
+    # total barang masuk per category (SUM stock_in.qty)
+    in_rows = (
+        db.session.query(
+            Product.category.label("cat"),
+            func.coalesce(func.sum(StockIn.qty), 0).label("in_qty")
+        )
+        .join(Product, Product.id == StockIn.product_id)
+        .filter(Product.category.in_(categories))
+        .group_by(Product.category)
+        .all()
+    )
+    in_map = {r.cat: int(r.in_qty or 0) for r in in_rows}
+
+    # total barang terjual per category (SUM sale_items.qty)
+    sold_rows = (
+        db.session.query(
+            Product.category.label("cat"),
+            func.coalesce(func.sum(SaleItem.qty), 0).label("sold_qty")
+        )
+        .join(Product, Product.id == SaleItem.product_id)
+        .filter(Product.category.in_(categories))
+        .group_by(Product.category)
+        .all()
+    )
+    sold_map = {r.cat: int(r.sold_qty or 0) for r in sold_rows}
+
+    folders = []
+    for cat in categories:
+        folders.append({
+            "name": cat,
+            "in_qty": in_map.get(cat, 0),
+            "sold_qty": sold_map.get(cat, 0),
+        })
 
     return render_template(
         "dashboard.html",
@@ -136,6 +191,7 @@ def dashboard():
         q=q,
         folders=folders,
     )
+
 
 
 # -------------------------
@@ -147,6 +203,8 @@ def product_upsert():
     sku = (request.form.get("sku") or "").strip()
     name = (request.form.get("name") or "").strip()
     unit = (request.form.get("unit") or "pcs").strip()
+    category = (request.form.get("category") or "Clothes").strip()
+    p.category = category
 
     cost_price = Decimal(request.form.get("cost_price") or "0")  # ✅ tambah
     retail_price = Decimal(request.form.get("retail_price") or "0")
@@ -823,6 +881,7 @@ def upload_products_xlsx():
     db.session.commit()
     flash(f"Upload selesai. Created: {created}, Updated: {updated}, Skipped: {skipped}", "success")
     return redirect(url_for("dashboard"))
+
 
 
 if __name__ == "__main__":

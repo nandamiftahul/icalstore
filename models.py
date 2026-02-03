@@ -26,6 +26,7 @@ class Product(db.Model):
     unit = db.Column(db.String(30), default="pcs")
     stock_qty = db.Column(db.Integer, nullable=False, default=0)
     cost_price = db.Column(db.Numeric(12, 2), nullable=False, default=0)  # harga modal (default/terakhir)
+    category = db.Column(db.String(80), nullable=False, default="Clothes")
 
     # Harga berbeda: retail vs reseller (default)
     retail_price = db.Column(db.Numeric(12, 2), nullable=False, default=0)

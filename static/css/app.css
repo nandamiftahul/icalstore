@@ -120,6 +120,54 @@ b{ font-weight:700; }
   display:grid;
   grid-template-columns: 1.65fr 1fr;
   gap:14px;
+  align-items:start;
+}
+
+/* =========================
+   Dashboard: fixed left panel + scroll inside
+========================= */
+.dashboard-grid > .stock-panel{
+  height: calc(100vh - 62px - 36px); /* topbar height + content padding approx */
+  display:flex;
+  flex-direction:column;
+}
+.dashboard-grid > .stock-panel .card-head{
+  flex:0 0 auto;
+}
+.card-body-scroll{
+  flex:1 1 auto;
+  overflow-y:auto;
+  padding-bottom:14px;
+}
+
+/* search stays visible while scrolling */
+.sticky-subbar{
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: var(--card);
+  padding-top: 10px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--border);
+}
+
+/* nicer scrollbar */
+.card-body-scroll::-webkit-scrollbar{ width: 10px; }
+.card-body-scroll::-webkit-scrollbar-thumb{
+  background: rgba(100,116,139,.35);
+  border-radius: 999px;
+}
+.card-body-scroll::-webkit-scrollbar-track{ background: transparent; }
+
+/* upload bar */
+.upload-bar{
+  display:flex;
+  gap:10px;
+  align-items:center;
+  flex-wrap:wrap;
+}
+.upload-file{
+  max-width: 240px;
 }
 
 .stats{ display:flex; gap:10px; }
@@ -172,15 +220,12 @@ b{ font-weight:700; }
 .list{ border-top:1px solid var(--border); }
 .row{
   display:grid;
-  grid-template-columns: 60px 1fr 250px;
+  grid-template-columns: 60px 1fr 260px;
   gap:12px;
   padding:14px 16px;
   border-bottom:1px solid var(--border);
-  align-items:center;
+  align-items:start;
 }
-.list.compact .row{ grid-template-columns: 1fr; }
-.linkrow{ cursor:pointer; }
-.linkrow.active{ background:#FFF3F5; border-left:4px solid var(--red); }
 .thumb-box{
   width:44px;height:44px;border-radius:14px;
   background:#EEF2FF;
@@ -192,7 +237,15 @@ b{ font-weight:700; }
 .row-meta{ margin-top:8px; display:flex; flex-wrap:wrap; gap:8px; }
 .row-side{ display:flex; justify-content:flex-end; }
 .note-k{ color:var(--muted); font-size:11px; }
-.note-v{ font-size:12px; margin-top:4px; color:#344054; }
+.note-v{
+  font-size:12px;
+  margin-top:4px;
+  color:#344054;
+  display:-webkit-box;
+  -webkit-line-clamp:2;
+  -webkit-box-orient:vertical;
+  overflow:hidden;
+}
 
 .tag{
   display:inline-flex; align-items:center; gap:6px;
@@ -234,6 +287,7 @@ b{ font-weight:700; }
   display:inline-flex;
   align-items:center;
   gap:8px;
+  white-space:nowrap;
 }
 .btn.primary{
   background:linear-gradient(180deg, var(--red2), var(--red));
@@ -245,7 +299,6 @@ b{ font-weight:700; }
   border:1px solid var(--border);
 }
 .btn:hover{ filter:brightness(.98); }
-.quick{ display:flex; flex-direction:column; gap:10px; padding:0 16px 16px; }
 
 .table{ padding:0 16px 16px; }
 .trow{
@@ -295,19 +348,8 @@ b{ font-weight:700; }
 .empty{ padding:16px; color:var(--muted); font-weight:700; }
 
 .inline{ display:flex; gap:8px; align-items:center; }
-.qty{
-  width:70px !important;
-  text-align:center;
-}
-.checkout-total{
-  display:flex;
-  justify-content:space-between;
-  padding:10px 16px 0;
-  font-weight:900;
-  color:#344054;
-}
-.checkout-total .big{ font-size:18px; color:#101828; }
-.fullw{ width:calc(100% - 32px); margin:12px 16px 16px; justify-content:center; }
+.qty{ width:70px !important; text-align:center; }
+
 .hint{ color:var(--muted); font-size:12px; padding-top:6px; }
 
 /* LOGIN */
@@ -343,10 +385,13 @@ b{ font-weight:700; }
 /* Responsive */
 @media (max-width: 980px){
   .grid2{ grid-template-columns: 1fr; }
+  .dashboard-grid > .stock-panel{ height:auto; }
+  .card-body-scroll{ overflow:visible; }
   .row{ grid-template-columns: 60px 1fr; }
   .row-side{ justify-content:flex-start; }
   .sidebar{ width:220px; }
 }
+
 @media (max-width: 720px){
   body{ flex-direction:column; }
   .sidebar{
@@ -358,4 +403,67 @@ b{ font-weight:700; }
   .nav{ flex-direction:row; flex-wrap:wrap; }
   .nav-item span{ display:none; }
   .main{ width:100%; }
+}
+
+/* =========================
+   FIX: dashboard columns same height + inner scroll
+   (force override)
+========================= */
+
+/* Pastikan grid stretch ke tinggi yang sama */
+.grid2.dashboard-grid{
+  align-items: stretch !important;
+}
+
+/* Hitung tinggi area konten: 100vh - topbar - padding content */
+:root{
+  --dashH: calc(100vh - 62px - 36px);
+}
+
+/* Kolom kiri: fixed height */
+.grid2.dashboard-grid > .stock-panel{
+  height: var(--dashH) !important;
+  display: flex !important;
+  flex-direction: column !important;
+  overflow: hidden !important;
+}
+
+/* Body kiri: yang scroll hanya dalam panel */
+.grid2.dashboard-grid > .stock-panel .card-body-scroll{
+  flex: 1 1 auto !important;
+  overflow-y: auto !important;
+}
+
+/* Kolom kanan: fixed height + scroll */
+.grid2.dashboard-grid > .stack{
+  height: var(--dashH) !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  padding-bottom: 14px;
+}
+
+/* Biar card di kanan tidak “mepet” dan tetap rapi */
+.grid2.dashboard-grid > .stack .card{
+  flex: 0 0 auto;
+}
+
+/* Mobile: balik normal */
+@media (max-width: 980px){
+  :root{ --dashH: auto; }
+  .grid2.dashboard-grid > .stock-panel{ height:auto !important; overflow:visible !important; }
+  .grid2.dashboard-grid > .stack{ height:auto !important; overflow:visible !important; }
+  .grid2.dashboard-grid > .stock-panel .card-body-scroll{ overflow:visible !important; }
+}
+/* Notes column align right */
+.row-side{
+  justify-content: flex-end;
+}
+
+.row-side .note{
+  text-align: right;
+}
+
+.row-side .note-k,
+.row-side .note-v{
+  text-align: right;
 }

@@ -1,0 +1,10 @@
+Flask
+Flask-SQLAlchemy
+Flask-Login
+Flask-WTF
+WTForms
+psycopg2-binary
+gunicorn
+python-barcode
+Pillow
+python-dotenv

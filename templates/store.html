@@ -1,0 +1,91 @@
+{% extends "base.html" %}
+{% set title = "Online Store" %}
+{% block content %}
+
+<div class="grid2">
+  <div class="card">
+    <div class="card-head">
+      <div>
+        <div class="card-title">Catalog</div>
+        <div class="card-sub">Retail channel</div>
+      </div>
+      <div class="topbar-actions">
+        <span class="pill"><i class="bi bi-cart"></i> {{ cart_count or 0 }}</span>
+        <form method="POST" action="{{ url_for('store_cart_clear') }}">
+          <button class="btn ghost" type="submit"><i class="bi bi-trash"></i> Clear</button>
+        </form>
+        <a class="btn primary" href="{{ url_for('store_checkout') }}"><i class="bi bi-credit-card"></i> Checkout</a>
+      </div>
+    </div>
+
+    <div class="toolbar">
+      <form method="GET" action="{{ url_for('store') }}" class="search">
+        <i class="bi bi-search"></i>
+        <input name="q" value="{{ q }}" placeholder="Search SKU / name">
+      </form>
+    </div>
+
+    <div class="list">
+      {% for p in products %}
+      <div class="row">
+        <div class="thumb">
+          <div class="thumb-box"><i class="bi bi-bag"></i></div>
+        </div>
+        <div class="row-main">
+          <div class="row-title">{{ p.name }}</div>
+          <div class="row-sub">SKU: <b>{{ p.sku }}</b> · Stok: <b>{{ p.stock_qty }}</b> {{ p.unit }}</div>
+          <div class="row-meta">
+            <span class="tag">Rp {{ "{:,.0f}".format(p.retail_price) }}</span>
+          </div>
+        </div>
+        <div class="row-side">
+          <form class="inline" method="POST" action="{{ url_for('store_cart_add') }}">
+            <input type="hidden" name="sku" value="{{ p.sku }}">
+            <input class="qty" name="qty" type="number" value="1" min="1">
+            <button class="btn ghost" type="submit"><i class="bi bi-cart-plus"></i></button>
+          </form>
+        </div>
+      </div>
+      {% endfor %}
+      {% if products|length==0 %}
+        <div class="empty">Tidak ada item.</div>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-head">
+      <div>
+        <div class="card-title">Checkout</div>
+        <div class="card-sub">Generate transaksi → masuk CashFlow</div>
+      </div>
+    </div>
+
+    {% if checkout_items %}
+      <div class="table">
+        <div class="trow thead">
+          <div>Produk</div><div>Qty</div><div>Harga</div><div>Sub</div>
+        </div>
+        {% for it in checkout_items %}
+        <div class="trow">
+          <div><b>{{ it.product.name }}</b><div class="muted">{{ it.product.sku }}</div></div>
+          <div>{{ it.qty }}</div>
+          <div>Rp {{ "{:,.0f}".format(it.price) }}</div>
+          <div>Rp {{ "{:,.0f}".format(it.subtotal) }}</div>
+        </div>
+        {% endfor %}
+      </div>
+      <div class="checkout-total">
+        <div>Total</div>
+        <div class="big">Rp {{ "{:,.0f}".format(checkout_total) }}</div>
+      </div>
+      <form method="POST" action="{{ url_for('store_checkout_post') }}">
+        <button class="btn primary fullw" type="submit"><i class="bi bi-check2-circle"></i> Confirm Checkout</button>
+      </form>
+    {% else %}
+      <div class="empty">Klik “Checkout” untuk preview isi cart.</div>
+    {% endif %}
+  </div>
+</div>
+
+{% endblock %}

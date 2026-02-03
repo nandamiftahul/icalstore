@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>Login</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/app.css') }}">
+</head>
+<body class="login-body">
+  <div class="login-wrap">
+    <div class="login-card">
+      <div class="login-brand">
+        <div class="brand-badge big">S</div>
+        <div>
+          <div class="login-title">Inventory App</div>
+          <div class="login-sub">Login admin / user</div>
+        </div>
+      </div>
+
+      {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+          <div class="toasts">
+            {% for cat,msg in messages %}
+              <div class="toast {{ cat }}">{{ msg }}</div>
+            {% endfor %}
+          </div>
+        {% endif %}
+      {% endwith %}
+
+      <form method="POST" action="{{ url_for('login_post') }}" class="form">
+        <label>Username</label>
+        <input name="username" placeholder="admin / user" required>
+
+        <label>Password</label>
+        <input name="password" type="password" placeholder="••••••••" required>
+
+        <button class="btn primary" type="submit">Login</button>
+        <div class="hint">Default admin: <b>admin</b> / <b>admin123</b> (bisa diganti via env)</div>
+      </form>
+    </div>
+  </div>
+</body>
+</html>

@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% set title = "CashFlow Penjualan" %}
+{% block content %}
+
+<div class="card">
+  <div class="card-head">
+    <div>
+      <div class="card-title">CashFlow</div>
+      <div class="card-sub">Total (200 transaksi terakhir): <b>Rp {{ "{:,.0f}".format(total) }}</b></div>
+    </div>
+    <a class="btn ghost" href="{{ url_for('store') }}"><i class="bi bi-bag"></i> Open Store</a>
+  </div>
+
+  <div class="table">
+    <div class="trow thead">
+      <div>Time</div><div>Ref</div><div>Channel</div><div>Total</div>
+    </div>
+    {% for s in sales %}
+    <div class="trow">
+      <div>{{ s.created_at.strftime("%Y-%m-%d %H:%M") }}</div>
+      <div><b>{{ s.ref }}</b></div>
+      <div>{{ s.channel }}</div>
+      <div>Rp {{ "{:,.0f}".format(s.total_amount) }}</div>
+    </div>
+    {% endfor %}
+    {% if sales|length==0 %}
+      <div class="empty">Belum ada penjualan.</div>
+    {% endif %}
+  </div>
+</div>
+
+{% endblock %}

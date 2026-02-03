@@ -1,0 +1,97 @@
+{% extends "base.html" %}
+{% set title = "Reseller Data" %}
+{% block content %}
+
+<div class="grid2">
+  <div class="card">
+    <div class="card-head">
+      <div>
+        <div class="card-title">Resellers</div>
+        <div class="card-sub">Pilih reseller untuk lihat list barang + harga + jumlah</div>
+      </div>
+    </div>
+
+    <form class="form grid" method="POST" action="{{ url_for('resellers_add') }}">
+      <div>
+        <label>Nama Reseller</label>
+        <input name="name" required>
+      </div>
+      <div>
+        <label>Phone</label>
+        <input name="phone" placeholder="08xxxx">
+      </div>
+      <div class="full">
+        <button class="btn primary" type="submit"><i class="bi bi-plus-circle"></i> Add Reseller</button>
+      </div>
+    </form>
+
+    <div class="list compact">
+      {% for r in resellers %}
+        <a class="row linkrow {{ 'active' if selected and selected.id==r.id else '' }}" href="{{ url_for('resellers', id=r.id) }}">
+          <div class="row-main">
+            <div class="row-title">{{ r.name }}</div>
+            <div class="row-sub">{{ r.phone or '-' }}</div>
+          </div>
+          <div class="row-side"><i class="bi bi-chevron-right"></i></div>
+        </a>
+      {% endfor %}
+      {% if resellers|length==0 %}
+        <div class="empty">Belum ada reseller.</div>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-head">
+      <div>
+        <div class="card-title">Inventory</div>
+        <div class="card-sub">
+          {% if selected %}Reseller: <b>{{ selected.name }}</b>{% else %}Pilih reseller dulu{% endif %}
+        </div>
+      </div>
+    </div>
+
+    {% if selected %}
+    <form class="form grid" method="POST" action="{{ url_for('reseller_inventory_upsert') }}">
+      <input type="hidden" name="reseller_id" value="{{ selected.id }}">
+      <div class="full">
+        <label>SKU</label>
+        <input name="sku" placeholder="SKU-001" required>
+      </div>
+      <div>
+        <label>Qty</label>
+        <input name="qty" type="number" value="0">
+      </div>
+      <div>
+        <label>Harga Reseller (override)</label>
+        <input name="price" type="number" step="0.01" value="0">
+      </div>
+      <div class="full">
+        <button class="btn primary" type="submit"><i class="bi bi-save"></i> Save</button>
+      </div>
+      <div class="full hint">
+        Tips: jika mau pakai harga default produk, isi sama dengan “Reseller Price” di master produk.
+      </div>
+    </form>
+
+    <div class="table">
+      <div class="trow thead">
+        <div>SKU</div><div>Produk</div><div>Qty</div><div>Harga</div>
+      </div>
+      {% for row in rows %}
+      <div class="trow">
+        <div><b>{{ row.product.sku }}</b></div>
+        <div>{{ row.product.name }}</div>
+        <div>{{ row.qty }}</div>
+        <div>Rp {{ "{:,.0f}".format(row.price) }}</div>
+      </div>
+      {% endfor %}
+      {% if rows|length==0 %}
+        <div class="empty">Belum ada data inventory reseller.</div>
+      {% endif %}
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+{% endblock %}

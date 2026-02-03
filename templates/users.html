@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+{% set title = "User Management" %}
+{% block content %}
+
+<div class="grid2">
+  <div class="card">
+    <div class="card-head">
+      <div>
+        <div class="card-title">Create User</div>
+        <div class="card-sub">Admin only</div>
+      </div>
+    </div>
+
+    <form class="form grid" method="POST" action="{{ url_for('users_create') }}">
+      <div>
+        <label>Username</label>
+        <input name="username" required>
+      </div>
+      <div>
+        <label>Password</label>
+        <input name="password" type="password" required>
+      </div>
+      <div>
+        <label>Role</label>
+        <select name="role">
+          <option value="user">user</option>
+          <option value="admin">admin</option>
+        </select>
+      </div>
+      <div class="full">
+        <button class="btn primary" type="submit"><i class="bi bi-person-plus"></i> Create</button>
+      </div>
+    </form>
+  </div>
+
+  <div class="card">
+    <div class="card-head">
+      <div>
+        <div class="card-title">Users</div>
+        <div class="card-sub">Toggle active/inactive</div>
+      </div>
+    </div>
+
+    <div class="table">
+      <div class="trow thead">
+        <div>Username</div><div>Role</div><div>Status</div><div>Action</div>
+      </div>
+      {% for u in users %}
+      <div class="trow">
+        <div><b>{{ u.username }}</b></div>
+        <div>{{ u.role }}</div>
+        <div>
+          <span class="pill {{ 'ok' if u.is_active else 'danger' }}">
+            {{ 'active' if u.is_active else 'inactive' }}
+          </span>
+        </div>
+        <div>
+          <form method="POST" action="{{ url_for('users_toggle') }}">
+            <input type="hidden" name="user_id" value="{{ u.id }}">
+            <button class="btn ghost" type="submit"><i class="bi bi-toggle2-on"></i> Toggle</button>
+          </form>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+
+{% endblock %}

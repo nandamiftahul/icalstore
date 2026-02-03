@@ -2,12 +2,15 @@
 {% set title = "Online Store" %}
 {% block content %}
 
-<div class="grid2">
-  <div class="card">
+<div class="grid2 store-grid">
+  <!-- =========================
+       LEFT: Catalog (Grid Cards)
+  ========================== -->
+  <div class="card store-catalog">
     <div class="card-head">
       <div>
         <div class="card-title">Catalog</div>
-        <div class="card-sub">Retail channel</div>
+        <div class="card-sub">Retail channel · {{ total }} products</div>
       </div>
       <div class="topbar-actions">
         <span class="pill"><i class="bi bi-cart"></i> {{ cart_count or 0 }}</span>
@@ -18,41 +21,83 @@
       </div>
     </div>
 
-    <div class="toolbar">
+    <!-- Filter bar -->
+    <div class="toolbar store-filter">
       <form method="GET" action="{{ url_for('store') }}" class="search">
         <i class="bi bi-search"></i>
         <input name="q" value="{{ q }}" placeholder="Search SKU / name">
+        <input type="hidden" name="page" value="1">
       </form>
     </div>
 
-    <div class="list">
-      {% for p in products %}
-      <div class="row">
-        <div class="thumb">
-          <div class="thumb-box"><i class="bi bi-bag"></i></div>
-        </div>
-        <div class="row-main">
-          <div class="row-title">{{ p.name }}</div>
-          <div class="row-sub">SKU: <b>{{ p.sku }}</b> · Stok: <b>{{ p.stock_qty }}</b> {{ p.unit }}</div>
-          <div class="row-meta">
-            <span class="tag">Rp {{ "{:,.0f}".format(p.retail_price) }}</span>
+    <!-- Scrollable grid area -->
+    <div class="store-body">
+      <div class="store-gridcards">
+        {% for p in products %}
+        <div class="pcard">
+          <div class="pcard-top">
+            <div class="pcard-ico"><i class="bi bi-bag"></i></div>
+            <div class="pcard-stock">
+              Stok: <b>{{ p.stock_qty }}</b> {{ p.unit }}
+            </div>
           </div>
-        </div>
-        <div class="row-side">
-          <form class="inline" method="POST" action="{{ url_for('store_cart_add') }}">
+
+          <div class="pcard-name">{{ p.name }}</div>
+          <div class="pcard-sku">SKU: <b>{{ p.sku }}</b></div>
+
+          <div class="pcard-price">
+            Rp {{ "{:,.0f}".format(p.retail_price) }}
+          </div>
+
+          <form class="pcard-actions" method="POST" action="{{ url_for('store_cart_add') }}">
             <input type="hidden" name="sku" value="{{ p.sku }}">
             <input class="qty" name="qty" type="number" value="1" min="1">
-            <button class="btn ghost" type="submit"><i class="bi bi-cart-plus"></i></button>
+            <button class="btn ghost" type="submit" title="Add to cart">
+              <i class="bi bi-cart-plus"></i>
+            </button>
           </form>
         </div>
+        {% endfor %}
+
+        {% if products|length==0 %}
+          <div class="empty">Tidak ada item.</div>
+        {% endif %}
       </div>
-      {% endfor %}
-      {% if products|length==0 %}
-        <div class="empty">Tidak ada item.</div>
-      {% endif %}
+    </div>
+
+    <!-- Pagination bottom -->
+    <div class="store-pager">
+      <div class="muted">Page {{ page }} / {{ pages }}</div>
+
+      <div class="pager-actions">
+        {% if page > 1 %}
+          <a class="btn ghost"
+             href="{{ url_for('store', q=q, page=page-1) }}">
+            <i class="bi bi-chevron-left"></i> Previous
+          </a>
+        {% else %}
+          <button class="btn ghost" disabled>
+            <i class="bi bi-chevron-left"></i> Previous
+          </button>
+        {% endif %}
+
+        {% if page < pages %}
+          <a class="btn ghost"
+             href="{{ url_for('store', q=q, page=page+1) }}">
+            Next <i class="bi bi-chevron-right"></i>
+          </a>
+        {% else %}
+          <button class="btn ghost" disabled>
+            Next <i class="bi bi-chevron-right"></i>
+          </button>
+        {% endif %}
+      </div>
     </div>
   </div>
 
+  <!-- =========================
+       RIGHT: Checkout (tetap)
+  ========================== -->
   <div class="card">
     <div class="card-head">
       <div>

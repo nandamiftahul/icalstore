@@ -494,6 +494,3 @@ def store_checkout_post():
     flash(f"Checkout berhasil. Ref: {sale.ref}", "success")
     return redirect(url_for("cashflow"))
 
-
-if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=8080, debug=True)
